@@ -17,8 +17,8 @@ Audits the six canonical security headers and computes a sub-score.
 
 | Sub-score | Status |
 |---|---|
-| 80–100 | `ok` |
-| 40–79 | `warn` |
-| 0–39 | `fail` |
+| 80-100 | `ok` |
+| 40-79 | `warn` |
+| 0-39 | `fail` |
 
 The sub-score is `(headers present) / 6 × 100`, rounded.

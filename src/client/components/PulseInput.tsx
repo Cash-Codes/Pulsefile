@@ -12,6 +12,12 @@ const SUGGESTIONS = [
   'https://httpbin.org/redirect/15',
 ];
 
+function normalizeUrl(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return trimmed;
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
 export function PulseInput({ initialUrl = '', onSubmit, disabled }: Props) {
   const [url, setUrl] = useState(initialUrl);
 
@@ -21,18 +27,20 @@ export function PulseInput({ initialUrl = '', onSubmit, disabled }: Props) {
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!url) return;
-    onSubmit(url);
+    const normalized = normalizeUrl(url);
+    if (!normalized) return;
+    onSubmit(normalized);
   }
 
   return (
     <div>
-      <form className="console" onSubmit={handleSubmit}>
+      <form className="console" onSubmit={handleSubmit} noValidate>
         <span className="console__prompt" aria-hidden>{'>_'}</span>
         <input
           className="console__input"
-          type="url"
-          placeholder="https://example.com"
+          type="text"
+          inputMode="url"
+          placeholder="example.com or https://example.com"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           autoFocus
@@ -41,7 +49,7 @@ export function PulseInput({ initialUrl = '', onSubmit, disabled }: Props) {
           autoComplete="off"
           autoCapitalize="off"
         />
-        <button className="console__submit" type="submit" disabled={disabled || !url}>
+        <button className="console__submit" type="submit" disabled={disabled || !url.trim()}>
           {disabled ? (
             <span className="pulse-dots" aria-label="Pulsing">
               <span /><span /><span />

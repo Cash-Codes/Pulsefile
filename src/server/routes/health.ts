@@ -7,7 +7,7 @@ export interface HealthDeps {
 
 export function healthRoute(deps: HealthDeps) {
   const app = new Hono();
-  app.get('/healthz', (c) => {
+  app.get('/health', (c) => {
     return c.json({
       ok: true,
       sha: deps.sha,

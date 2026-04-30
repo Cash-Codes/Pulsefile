@@ -20,11 +20,18 @@ function buildShareUrl(url: string) {
   return `${window.location.origin}/?${params.toString()}`;
 }
 
-const ECG_PATH =
-  'M 0 14 L 60 14 L 80 14 L 90 12 L 105 16 L 115 4 L 122 24 L 132 14 L ' +
-  '180 14 L 200 14 L 230 14 L 250 12 L 260 16 L 268 14 L 320 14 L ' +
-  '360 14 L 380 14 L 400 12 L 415 16 L 425 4 L 432 24 L 442 14 L ' +
-  '500 14 L 540 14 L 600 14';
+function labelForError(body: { error?: string; code?: string }): string {
+  if (body.error === 'invalid_url') {
+    if (body.code === 'dns_failure') return 'Couldn’t resolve';
+    if (body.code === 'invalid_scheme') return 'Bad scheme';
+    return 'Invalid URL';
+  }
+  if (body.error === 'ssrf_blocked') return 'Blocked';
+  if (body.error === 'rate_limited') return 'Slow down';
+  if (body.error === 'invalid_json' || body.error === 'invalid_request') return 'Bad request';
+  if (body.error === 'internal_error') return 'Server error';
+  return 'Error';
+}
 
 export function App() {
   const [report, setReport] = useState<PulseReport | null>(null);
@@ -32,6 +39,7 @@ export function App() {
   const [pending, setPending] = useState(false);
   const [recents, setRecents] = useState<string[]>([]);
   const [initialUrl, setInitialUrl] = useState<string>('');
+  const [errorLabel, setErrorLabel] = useState<string>('Error');
   const [pulseCount, setPulseCount] = useState<number>(0);
   const [copied, setCopied] = useState(false);
 
@@ -57,6 +65,7 @@ export function App() {
       });
       const body = await res.json();
       if (!res.ok) {
+        setErrorLabel(labelForError(body));
         setError(body.message ?? body.error ?? 'request failed');
       } else {
         setReport(body);
@@ -65,6 +74,7 @@ export function App() {
         setRecents(next); saveRecents(next);
       }
     } catch (e: any) {
+      setErrorLabel('Network');
       setError(e.message ?? 'network error');
     } finally {
       setPending(false);
@@ -80,142 +90,151 @@ export function App() {
     } catch { /* clipboard unavailable; quietly do nothing */ }
   }
 
-  const today = new Date().toLocaleDateString('en-US', {
-    weekday: 'short', year: 'numeric', month: 'short', day: '2-digit',
-  });
   const stationLabel = pulseCount === 0
-    ? 'Station idle · 0 pulses'
-    : `Station active · ${pulseCount} pulse${pulseCount === 1 ? '' : 's'}`;
+    ? 'live'
+    : `${pulseCount} pulse${pulseCount === 1 ? '' : 's'}`;
 
   return (
     <div className="app">
-      <header className="masthead">
-        <div className="masthead__rule" />
-        <div className="masthead__meta">
-          <span><span className="dot" />{stationLabel}</span>
-          <span>{today.toUpperCase()}</span>
-          <span>VOL · I — Issue 0001</span>
+      <nav className="topbar" aria-label="primary">
+        <a className="brand" href="/" aria-label="Pulsefile home">
+          <svg className="brand__mark" viewBox="0 0 24 24" aria-hidden focusable="false">
+            <path
+              d="M3 12 H7 L9 7.5 L12 16.5 L14.5 11 L16.5 13 H21"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span className="brand__text">Pulsefile</span>
+        </a>
+        <div className="topbar__meta">
+          <span className="status-pill" title="Session activity">
+            <span className="status-pill__dot" aria-hidden />
+            <span className="status-pill__text">{stationLabel}</span>
+          </span>
         </div>
-        <h1 className="masthead__brand">
-          Pulsefile<span className="accent">.</span>
+      </nav>
+
+      <header className="hero">
+        <span className="hero__eyebrow">Web diagnostic · single round-trip</span>
+        <h1 className="hero__title">
+          URL health, <em>in one pulse.</em>
         </h1>
-        <svg
-          className="masthead__ecg"
-          viewBox="0 0 600 28"
-          preserveAspectRatio="none"
-          aria-hidden
-        >
-          <path className="ecg-floor" d="M 0 14 L 600 14" />
-          <path className="ecg-trace" d={ECG_PATH} />
-        </svg>
-        <p className="masthead__tag">
-          A diagnostic instrument for the open web. Submit any URL and Pulsefile takes
-          its <em>pulse</em> — six probes, one composite reading, in a single round-trip.
+        <p className="hero__lede">
+          Submit any URL - Pulsefile probes HTTP, SSL, redirects, security headers,
+          contentand timing in a single round-trip and returns one composite reading.
         </p>
       </header>
 
-      <PulseInput initialUrl={initialUrl} onSubmit={runPulse} disabled={pending} />
+      <main className="main">
+        <PulseInput initialUrl={initialUrl} onSubmit={runPulse} disabled={pending} />
 
-      {error && (
-        <div className="error-banner">
-          <span className="error-banner__label">Error</span>
-          <span>{error}</span>
-        </div>
-      )}
-
-      {report && (
-        <section className="report" aria-live="polite">
-          <div>
-            <ScoreCircle score={report.composite} durationMs={report.durationMs} />
+        {error && (
+          <div className="error-banner" role="alert">
+            <span className="error-banner__label">{errorLabel}</span>
+            <span className="error-banner__text">{error}</span>
           </div>
-          <div className="panel">
-            <div className="panel__heading">
-              <span>Probe results</span>
-              <span>{report.requestedUrl.replace(/^https?:\/\//, '')}</span>
-            </div>
-            <div className="panel__rows">
-              <CheckTile
-                index={0}
-                name="HTTP"
-                outcome={report.checks.http}
-                summary={(o) => o.status === 'error'
-                  ? 'unreachable'
-                  : `${o.httpStatus} · ${o.latencyMs} ms · ${(o.responseSizeBytes / 1024).toFixed(1)} kB`}
-                detail={(o) => o.status === 'error' ? o.message : ''}
-              />
-              <CheckTile
-                index={1}
-                name="SSL"
-                outcome={report.checks.ssl}
-                summary={(o) => o.status === 'error'
-                  ? 'no handshake'
-                  : `${o.classification} · ${o.daysUntilExpiry}d`}
-                detail={(o) => o.status === 'error'
-                  ? o.message
-                  : `subject  ${o.subject}\nissuer   ${o.issuer}\nvalid    ${o.validFrom.slice(0, 10)} → ${o.validTo.slice(0, 10)}\nSAN      ${o.sanList.join(', ')}`}
-              />
-              <CheckTile
-                index={2}
-                name="Redirects"
-                outcome={report.checks.redirects}
-                summary={(o) => o.status === 'error'
-                  ? 'chain blocked'
-                  : `${o.hops.length} hop${o.hops.length === 1 ? '' : 's'}${o.capped ? ' · capped' : ''}`}
-                detail={(o) => o.status === 'error'
-                  ? o.message
-                  : o.hops.length === 0
-                    ? `final  ${o.finalUrl}`
-                    : `${o.hops.map((h: any, i: number) => `${String(i + 1).padStart(2, ' ')}. ${h.status} ${h.fromUrl}\n    → ${h.toUrl} (${h.latencyMs} ms)`).join('\n')}\nfinal  ${o.finalUrl}`}
-              />
-              <CheckTile
-                index={3}
-                name="Headers"
-                outcome={report.checks.securityHeaders}
-                summary={(o) => o.status === 'error'
-                  ? 'no response'
-                  : `${o.scoreOutOf100} / 100 · ${o.headers.filter((h: any) => h.present).length} of 6`}
-                detail={(o) => o.status === 'error'
-                  ? o.message
-                  : o.headers.map((h: any) => `${h.present ? '+' : '-'}  ${h.name}${h.present ? `\n   ${h.value}` : `\n   ${h.recommendation}`}`).join('\n')}
-              />
-              <CheckTile
-                index={4}
-                name="Content"
-                outcome={report.checks.content}
-                summary={(o) =>
-                  o.status === 'na' ? 'no expectation' :
-                  o.matched ? `matched "${o.expected}"` :
-                  `missing "${o.expected}"`}
-                detail={(o) => o.status === 'na'
-                  ? 'Provide an "expect" string to assert a substring match against the body.'
-                  : (o.snippet ?? '')}
-              />
-              <CheckTile
-                index={5}
-                name="Timing"
-                outcome={report.checks.timing}
-                summary={(o) => o.status === 'error'
-                  ? 'no response'
-                  : `ttfb ${o.ttfbMs} ms · total ${o.totalMs} ms`}
-                detail={(o) => o.status === 'error'
-                  ? o.message
-                  : `dns  ${o.dnsMs} ms\ntcp  ${o.tcpMs} ms\ntls  ${o.tlsMs} ms\nttfb ${o.ttfbMs} ms\ntotal ${o.totalMs} ms\n\n(per-phase timing pending socket-level instrumentation)`}
-              />
-            </div>
-            <div className="share-row">
-              <span className="share-row__label">Share</span>
-              <button type="button" className="share-row__btn" onClick={copyShareLink}>
-                {copied ? 'link copied to clipboard' : 'copy a permalink to this report'}
-              </button>
-            </div>
-          </div>
-        </section>
-      )}
+        )}
 
-      <RecentChecks items={recents} onPick={runPulse} />
+        {report && (
+          <section className="report" aria-live="polite">
+            <div className="report__score">
+              <ScoreCircle score={report.composite} durationMs={report.durationMs} />
+            </div>
+            <div className="panel">
+              <div className="panel__heading">
+                <span className="panel__title">Probe results</span>
+                <span className="panel__url" title={report.requestedUrl}>
+                  {report.requestedUrl.replace(/^https?:\/\//, '')}
+                </span>
+              </div>
+              <div className="panel__rows">
+                <CheckTile
+                  index={0}
+                  name="HTTP"
+                  outcome={report.checks.http}
+                  summary={(o) => o.status === 'error'
+                    ? 'unreachable'
+                    : `${o.httpStatus} · ${o.latencyMs} ms · ${(o.responseSizeBytes / 1024).toFixed(1)} kB`}
+                  detail={(o) => o.status === 'error' ? o.message : ''}
+                />
+                <CheckTile
+                  index={1}
+                  name="SSL"
+                  outcome={report.checks.ssl}
+                  summary={(o) => o.status === 'error'
+                    ? 'no handshake'
+                    : `${o.classification} · ${o.daysUntilExpiry}d`}
+                  detail={(o) => o.status === 'error'
+                    ? o.message
+                    : `subject  ${o.subject}\nissuer   ${o.issuer}\nvalid    ${o.validFrom.slice(0, 10)} → ${o.validTo.slice(0, 10)}\nSAN      ${o.sanList.join(', ')}`}
+                />
+                <CheckTile
+                  index={2}
+                  name="Redirects"
+                  outcome={report.checks.redirects}
+                  summary={(o) => o.status === 'error'
+                    ? 'chain blocked'
+                    : `${o.hops.length} hop${o.hops.length === 1 ? '' : 's'}${o.capped ? ' · capped' : ''}`}
+                  detail={(o) => o.status === 'error'
+                    ? o.message
+                    : o.hops.length === 0
+                      ? `final  ${o.finalUrl}`
+                      : `${o.hops.map((h: any, i: number) => `${String(i + 1).padStart(2, ' ')}. ${h.status} ${h.fromUrl}\n    → ${h.toUrl} (${h.latencyMs} ms)`).join('\n')}\nfinal  ${o.finalUrl}`}
+                />
+                <CheckTile
+                  index={3}
+                  name="Headers"
+                  outcome={report.checks.securityHeaders}
+                  summary={(o) => o.status === 'error'
+                    ? 'no response'
+                    : `${o.scoreOutOf100} / 100 · ${o.headers.filter((h: any) => h.present).length} of 6`}
+                  detail={(o) => o.status === 'error'
+                    ? o.message
+                    : o.headers.map((h: any) => `${h.present ? '+' : '-'}  ${h.name}${h.present ? `\n   ${h.value}` : `\n   ${h.recommendation}`}`).join('\n')}
+                />
+                <CheckTile
+                  index={4}
+                  name="Content"
+                  outcome={report.checks.content}
+                  summary={(o) =>
+                    o.status === 'na' ? 'no expectation' :
+                    o.matched ? `matched "${o.expected}"` :
+                    `missing "${o.expected}"`}
+                  detail={(o) => o.status === 'na'
+                    ? 'Provide an "expect" string to assert a substring match against the body.'
+                    : (o.snippet ?? '')}
+                />
+                <CheckTile
+                  index={5}
+                  name="Timing"
+                  outcome={report.checks.timing}
+                  summary={(o) => o.status === 'error'
+                    ? 'no response'
+                    : `ttfb ${o.ttfbMs} ms · total ${o.totalMs} ms`}
+                  detail={(o) => o.status === 'error'
+                    ? o.message
+                    : `dns  ${o.dnsMs} ms\ntcp  ${o.tcpMs} ms\ntls  ${o.tlsMs} ms\nttfb ${o.ttfbMs} ms\ntotal ${o.totalMs} ms\n\n(per-phase timing pending socket-level instrumentation)`}
+                />
+              </div>
+              <div className="share-row">
+                <span className="share-row__label">Share</span>
+                <button type="button" className="share-row__btn" onClick={copyShareLink}>
+                  {copied ? 'Link copied' : 'Copy permalink'}
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        <RecentChecks items={recents} onPick={runPulse} />
+      </main>
 
       <footer className="colophon">
-        <span>Pulsefile · diagnostic instrument · v0.1</span>
+        <span>Pulsefile · diagnostic instrument</span>
         <span>
           <a href="https://github.com/cash-codes/AI_support_engineer" target="_blank" rel="noreferrer">
             companion · AI Support Engineer

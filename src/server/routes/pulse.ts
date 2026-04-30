@@ -40,8 +40,15 @@ export function pulseRoute(deps: PulseDeps) {
       return c.json(report);
     } catch (e) {
       if (e instanceof SsrfError) {
-        log.warn({ url: parsed.data.url, code: e.code }, 'pulse.ssrf_blocked');
-        return c.json({ error: 'ssrf_blocked', code: e.code, message: e.message }, 400);
+        // Distinguish "user supplied a bad URL" from "URL resolves to a blocked address."
+        // Both are 400s but the frontend shows different copy.
+        const isInputError =
+          e.code === 'invalid_url' ||
+          e.code === 'invalid_scheme' ||
+          e.code === 'dns_failure';
+        const error = isInputError ? 'invalid_url' : 'ssrf_blocked';
+        log.warn({ url: parsed.data.url, code: e.code, error }, `pulse.${error}`);
+        return c.json({ error, code: e.code, message: e.message }, 400);
       }
       log.error({ err: e, url: parsed.data.url }, 'pulse.failed');
       return c.json({ error: 'internal_error' }, 500);

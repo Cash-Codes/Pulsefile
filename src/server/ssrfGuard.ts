@@ -37,7 +37,7 @@ function isPrivateV4(addr: string): boolean {
     const second = Number(addr.split('.')[1]);
     if (second >= 16 && second <= 31) return true;
   }
-  // 100.64.0.0/10 - carrier-grade NAT (100.64.0.0–100.127.255.255)
+  // 100.64.0.0/10 - carrier-grade NAT (100.64.0.0-100.127.255.255)
   if (addr.startsWith('100.')) {
     const second = Number(addr.split('.')[1]);
     if (second >= 64 && second <= 127) return true;
