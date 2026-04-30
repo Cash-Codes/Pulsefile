@@ -1,0 +1,25 @@
+{
+  "slug": "slack-alerts-not-arriving",
+  "keywords": [
+    "slack alerts",
+    "slack alert",
+    "alerts not arriving",
+    "alerts not coming through",
+    "no slack notifications",
+    "slack channel not getting",
+    "alerts stopped working",
+    "slack integration"
+  ],
+  "router": {
+    "escalate": false,
+    "rationale": "The docs cover this scenario thoroughly, including the most common cause (bot kicked out of the channel) and the rotated-secret edge case. No code investigation is needed.",
+    "confidence": "high",
+    "draftAnswer": "Slack alerts dropping out is almost always one of three things: the Pulsefile bot was kicked out of the channel, the channel isn't selected on the monitor, or your workspace's signing secret was rotated. Check those in order - the Slack integration usually just needs a reconnect."
+  },
+  "resolution": {
+    "explanation": "Slack alert delivery breaks for one of three documented reasons, in order of frequency: (1) the @Pulsefile bot was removed from the channel, (2) the alert channel isn't selected on the affected monitor, or (3) your Slack workspace owner rotated the signing secret, which silently invalidates our cached OAuth token without an obvious upstream error.",
+    "workaround": "Run /invite @Pulsefile in the Slack channel to confirm membership. If that doesn't fix it, open Settings → Alert channels → Slack → Disconnect, then reconnect - the new OAuth handshake will pick up any rotated workspace secret. Finally, double-check that the channel is ticked on the affected monitor's Alert channels list.",
+    "confidence": "high",
+    "citations": ["alerts-and-channels.md", "troubleshooting.md", "known-issues.md"]
+  }
+}

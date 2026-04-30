@@ -1,0 +1,44 @@
+{
+  "slug": "response-time-chart-timezone",
+  "keywords": [
+    "response time chart",
+    "chart wrong",
+    "wrong times",
+    "timezone",
+    "tz",
+    "chart timestamps",
+    "chart shifted",
+    "shifted timestamps",
+    "after changing timezone",
+    "chart looks wrong"
+  ],
+  "router": {
+    "escalate": true,
+    "rationale": "Docs hint at the symptom but the precise location of the bug - chart caching the timezone at mount and not subscribing to workspace setting changes - needs a code-level confirmation.",
+    "confidence": "medium"
+  },
+  "codeInvestigation": {
+    "rootCause": "The response-time chart component caches the workspace timezone at component mount via a useMemo over the initial WorkspaceContext value. When the user updates Settings → Workspace → Timezone, the context updates but the chart's memoized timezone closure does not re-derive, so already-rendered points stay anchored to the old offset until a hard refresh forces a remount.",
+    "affectedFiles": [
+      "src/charts/ResponseTimeChart.tsx",
+      "src/charts/useChartTimezone.ts",
+      "src/state/WorkspaceContext.tsx"
+    ],
+    "workaround": "Hard refresh the page (Cmd-Shift-R / Ctrl-Shift-F5) after changing the workspace timezone. The chart will re-mount and pick up the new offset.",
+    "confidence": "medium"
+  },
+  "resolution": {
+    "explanation": "After you change the workspace timezone, the response-time chart keeps rendering historical points using the old offset until the page is reloaded. The chart caches the timezone at mount and doesn't re-derive when the workspace setting changes mid-session - that's a bug we're aware of, with a fix in progress to subscribe the chart to workspace settings updates.",
+    "workaround": "Hard refresh the page after changing the timezone (Cmd-Shift-R on macOS, Ctrl-Shift-F5 on Windows). The chart will re-mount with the new offset and historical points will line up correctly.",
+    "confidence": "medium",
+    "citations": [
+      "known-issues.md",
+      "dashboards-and-status-pages.md",
+      "troubleshooting.md"
+    ]
+  },
+  "ticket": {
+    "title": "Charts: response-time chart caches timezone at mount, doesn't re-render after Settings change",
+    "body": "**Problem**\nUsers who change Settings → Workspace → Timezone while a response-time chart is open see historical points anchored to the *old* offset until they hard-refresh. The chart looks visibly shifted on the time axis.\n\n**Probable root cause**\n`src/charts/ResponseTimeChart.tsx` reads the workspace timezone via `useChartTimezone()` which memoizes the value at component mount. The hook does not subscribe to `WorkspaceContext` updates, so when the timezone is changed via Settings the context re-publishes but the chart closure stays bound to the previous offset.\n\n**Suggested fix**\n1. In `useChartTimezone.ts`, subscribe to `WorkspaceContext` and re-emit when `timezone` changes.\n2. In `ResponseTimeChart.tsx`, depend on the returned timezone value in the chart re-render path so a context change triggers a redraw.\n3. Add a Playwright test that: opens a chart, changes the workspace timezone, asserts the X-axis tick labels update without a page reload.\n\n**Affected files**\n- src/charts/ResponseTimeChart.tsx\n- src/charts/useChartTimezone.ts\n- src/state/WorkspaceContext.tsx\n\n**Severity**: medium - confusing for users who change timezones, but charts are still readable after a hard refresh."
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "slug": "monitor-up-despite-content-match",
+  "keywords": [
+    "says up but down",
+    "monitor reports up",
+    "reports up but",
+    "content match",
+    "content-match",
+    "maintenance page",
+    "200 but down",
+    "up but customers",
+    "wrongly reports up",
+    "false positive",
+    "stale page",
+    "should be down"
+  ],
+  "router": {
+    "escalate": true,
+    "rationale": "Docs describe the symptom and the fix direction, but the bug location - runHttpCheck.ts short-circuiting on status code without consulting the content-match result - is a code-level finding that warrants a high-confidence PR.",
+    "confidence": "high"
+  },
+  "codeInvestigation": {
+    "rootCause": "src/checks/runHttpCheck.ts evaluates the HTTP status code first and returns { status: 'up' } as soon as a 2xx is observed, without consulting check.contentMatch.passed in the status decision. The content-match logic in src/checks/contentMatch.ts runs and records its result on the check object, but that result is treated as observability data and never affects the final monitor status. Sites returning 200 with a maintenance page or stale CDN content are reported up.",
+    "affectedFiles": [
+      "src/checks/runHttpCheck.ts",
+      "src/checks/contentMatch.ts",
+      "src/checks/decideStatus.ts"
+    ],
+    "workaround": "As a partial mitigation, tighten the monitor's Expected status from the default 2xx range to a more specific code (e.g. 200 only). This won't catch every maintenance page but will reject some upstream redirects. The full fix requires the status decision to consult content-match results - see the ticket.",
+    "confidence": "high"
+  },
+  "resolution": {
+    "explanation": "This is a real bug in our check evaluator. When a monitor has a content-match assertion configured, the assertion runs and its result is recorded on the check, but the status decision short-circuits on the HTTP status code and never consults the assertion. So a site returning 200 OK with a maintenance page is reported as up even though the content-match correctly logged a failure. The fix is to make the status decision consult both signals before returning up.",
+    "workaround": "Tighten the monitor's Expected status to a specific code (e.g. 200 only) so upstream redirects to error pages are flagged. The full fix is shipping shortly - until then, content-match is observability-only on this code path.",
+    "confidence": "high",
+    "citations": [
+      "content-matching.md",
+      "known-issues.md",
+      "troubleshooting.md"
+    ]
+  },
+  "ticket": {
+    "title": "Checks: status decision short-circuits on HTTP status, ignores content-match result",
+    "body": "**Problem**\nMonitors with a content-match assertion that *fails* are still reported as `up` so long as the HTTP status code is in the 2xx range. Customers see the green status pill while their site is serving a maintenance page or stale CDN content.\n\n**Root cause**\n`src/checks/runHttpCheck.ts` evaluates the status code first and short-circuits the decision with `return { status: 'up' }` as soon as a 2xx is observed. `src/checks/contentMatch.ts` is invoked separately and records `passed: true|false` onto the check object, but that field is never consumed by `src/checks/decideStatus.ts`.\n\nThis contradicts both the docs (`docs/content-matching.md`) and the table in `docs/content-matching.md` that shows the `2xx + match-failed → down` row.\n\n**Suggested fix**\n1. In `runHttpCheck.ts`, defer the status decision until after `contentMatch` has been evaluated.\n2. In `decideStatus.ts`, treat a failed content-match as a `down` signal regardless of the HTTP status.\n3. Add an integration test that exercises the `2xx + match-failed → down` path against a fixture server.\n\n**Affected files**\n- src/checks/runHttpCheck.ts\n- src/checks/contentMatch.ts\n- src/checks/decideStatus.ts\n\n**Severity**: high - silent false-up. Customers using content match for maintenance-page detection currently get no value from it."
+  },
+  "pr": {
+    "branch": "fix/contentmatch-gates-status",
+    "title": "fix(checks): content-match failure must downgrade status to down",
+    "summary": "runHttpCheck previously short-circuited on HTTP 2xx and never consulted contentMatch in the status decision, so a 200 OK serving a maintenance page was reported up. This PR moves the status decision after contentMatch evaluation and adds the 2xx+match-failed→down path with an integration test."
+  }
+}
