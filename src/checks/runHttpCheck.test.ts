@@ -14,6 +14,11 @@ describe('runHttpCheck', () => {
     expect(out.status).toBe('ok');
   });
 
+  it('returns fail for 200 when expected content is missing', () => {
+    const out = runHttpCheck({ statusCode: 200, latencyMs: 100, bodyBytes: 500, expectedMatched: false });
+    expect(out.status).toBe('fail');
+  });
+
   it('returns warn for 3xx', () => {
     const out = runHttpCheck({ statusCode: 301, latencyMs: 80, bodyBytes: 0, expectedMatched: null });
     expect(out.status).toBe('warn');
