@@ -17,6 +17,9 @@ export function runHttpCheck(input: RunHttpCheckInput): HttpCheckResult {
   } else {
     status = 'fail';
   }
+  if (input.expectedMatched === false) {
+    status = 'fail';
+  }
   return {
     status,
     httpStatus: code,
