@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pulsefile · URL health snapshot</title>
+    <meta name="description" content="One-shot URL health inspection - HTTP, SSL, redirects, security headers, content match, timing." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/client/main.tsx"></script>
+    <script
+      src="https://agent-api-rv2s33lpja-uc.a.run.app/widget/loader.js"
+      data-api-base="https://agent-api-rv2s33lpja-uc.a.run.app"
+      data-product="pulsefile"
+      data-suggestions='[
+        {"label":"SSL says tls_unreachable","query":"My SSL check is reporting tls_unreachable but my site is on HTTPS and works in a browser. What does tls_unreachable mean and how do I fix it?"},
+        {"label":"Timing fields show 0","query":"Why does the timing breakdown show 0 for dnsMs, tcpMs, and tlsMs in my Pulse Check report? Only ttfbMs and totalMs have real numbers."},
+        {"label":"Content match fails but HTTP shows ok","query":"My content match shows fail in the report but the HTTP check still shows ok. Shouldn&#39;t the HTTP check reflect that the expected content was missing?"}
+      ]'
+    ></script>
+  </body>
+</html>

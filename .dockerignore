@@ -1,0 +1,8 @@
+node_modules
+dist
+.git
+.github
+docs/superpowers
+fixtures
+**/*.test.ts
+.DS_Store
