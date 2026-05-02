@@ -1,6 +1,6 @@
 # Pulse Check - overview
 
-Pulsefile's Pulse Check is a one-shot URL health snapshot. You submit a public URL; the service runs six probes from a Cloud Run container and returns a single dense report with a composite 0–100 score and an A–F grade.
+Pulsefile's Pulse Check is a one-shot URL health snapshot. You submit a public URL; the service runs six probes from a Cloud Run container and returns a single dense report with a composite 0-100 score and an A-F grade.
 
 ## What Pulse Check measures
 

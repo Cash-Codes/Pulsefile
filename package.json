@@ -4,6 +4,7 @@
   "private": true,
   "description": "Uptime monitoring for SaaS teams. Demo product that hosts the AI Support Engineer widget.",
   "type": "module",
+  "license": "SEE LICENSE IN LICENSE",
   "scripts": {
     "dev:client": "vite --port 5175",
     "dev:server": "PORT=8787 tsx watch src/server/index.ts",

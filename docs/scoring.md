@@ -1,6 +1,6 @@
 # Composite score
 
-The composite score is a weighted blend of the six check outcomes, scaled to 0–100, with a letter grade derived from the score.
+The composite score is a weighted blend of the six check outcomes, scaled to 0-100, with a letter grade derived from the score.
 
 ## Weights
 
@@ -23,7 +23,7 @@ Each check contributes (weight × per-check score) where:
 | Score | Grade |
 |---|---|
 | 90+ | A |
-| 75–89 | B |
-| 60–74 | C |
-| 45–59 | D |
+| 75-89 | B |
+| 60-74 | C |
+| 45-59 | D |
 | <45 | F |
